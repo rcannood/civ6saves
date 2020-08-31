@@ -1,7 +1,8 @@
 #' @importFrom tibble tibble
 #' @importFrom bit64 NA_integer64_
 #' @importFrom dplyr %>% filter
-
+#' @importFrom progress progress_bar
+#' @export
 read_save <- function(file) {
   # read binary file in memory
   bin <- readBin(file, "raw", n = 1024*1024*1024)

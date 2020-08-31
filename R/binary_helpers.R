@@ -4,11 +4,9 @@ binSearch <- function(x, pattern) {
   ix <- which(x == pattern[[1]])
   ix <- ix[ix <= length(x) - length(pattern) + 1]
 
-  # cat("Filter step ", 1, ": ", length(ix), " candidates\n", sep = "")
   i <- 2
   while (i <= length(pattern)) {
     ix <- ix[x[ix+i-1] == pattern[[i]]]
-    # cat("Filter step ", i, ": ", length(ix), " candidates\n", sep = "")
     i <- i + 1
   }
 

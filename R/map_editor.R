@@ -1,6 +1,7 @@
 xy_ratio <- 0.5 / cos(30/180*pi)
 
 #' @importFrom dplyr mutate %>%
+#' @export
 add_coordinates <- function(tib) {
   r <- xy_ratio
   tib <- tib %>%
@@ -16,6 +17,7 @@ add_coordinates <- function(tib) {
 }
 
 #' @importFrom dplyr filter mutate bind_rows
+#' @export
 get_river_coordinates <- function(tib) {
   bind_rows(
     tab %>% filter(river_e != -1) %>% mutate(xa = x2, xb = x3, ya = y2, yb = y3),
