@@ -62,8 +62,30 @@ owner_palette <- setNames(
   c(0:32, 62, 255)
 )
 
+alpha <- 0.01
 
-for (rds_file in rds_files) {
+g0 <-
+  plot_empty_map(tab_static) +
+  ggforce::geom_regon(aes(fill = terrain_name), alpha = alpha) +
+  geom_text(aes(label = "^"), tab %>% filter(terrain_form == "Hill"), alpha = alpha) +
+  geom_text(aes(label = "^"), tab %>% filter(terrain_form == "Mountain"), fontface = "bold", alpha = alpha) +
+  geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = feature_palette[["River"]], rivers, size = 1, alpha = alpha) +
+  scale_fill_manual(values = terrain_palette) +
+  theme(axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_blank(),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(hjust = .5, size = 10),
+        plot.margin = unit(c(-2, -2, -2, -2), "cm"),
+        legend.position = "none")
+
+
+walk(rds_files, function(rds_file) {
   pdf_file <- gsub("rds$", "pdf", rds_file)
   png_file <- gsub("rds$", "png", rds_file)
 
@@ -71,36 +93,11 @@ for (rds_file in rds_files) {
   simf <- simple_borders %>% filter(file == rds_file)
   tabfo <- tabf %>% filter(!is.na(owner))
 
-  alpha <- 0.05
-
-  g <-
-    # static part
-    plot_empty_map(tab_static) +
-    ggforce::geom_regon(aes(fill = terrain_name), alpha = alpha) +
-    geom_text(aes(label = "^"), tab %>% filter(terrain_form == "Hill"), alpha = alpha) +
-    geom_text(aes(label = "^"), tab %>% filter(terrain_form == "Mountain"), fontface = "bold", alpha = alpha) +
-    geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = feature_palette[["River"]], rivers, size = 1, alpha = alpha) +
-    scale_fill_manual(values = terrain_palette) +
-
-    # dynamic part: ice and players
+  g <- g0 +
     ggnewscale::new_scale_fill() +
     ggforce::geom_regon(aes(r = civ6saves:::xy_ratio * .9), tabf %>% filter(feature_name == "Ice"), fill = feature_palette[["Ice"]], alpha = .4) +
     scale_fill_manual(values = owner_palette) +
     scale_colour_manual(values = owner_palette) +
-
-    # theme
-    theme(axis.line=element_blank(),
-          axis.ticks=element_blank(),
-          axis.title=element_blank(),
-          axis.text.y=element_blank(),
-          axis.text.x=element_blank(),
-          panel.border = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(),
-          plot.title = element_text(hjust = .5, size = 10),
-          plot.margin = unit(c(-2, -2, -2, -2), "cm"),
-          legend.position = "none") +
     labs(title = gsub("\\.rds", "", basename(rds_file)))
 
   if (nrow(tabfo) > 0) {
@@ -112,7 +109,7 @@ for (rds_file in rds_files) {
   ggsave(pdf_file, g, width = 20, height = 12)
   pdftools::pdf_convert(pdf_file, format = "png", filenames = png_file)
   file.remove(pdf_file)
-}
+})
 
 if (file.exists(webm_file)) file.remove(webm_file)
 system(paste0("ffmpeg -framerate 1 -f image2 -i ", input, "/%*.png -c:v libvpx-vp9 -pix_fmt yuva420p ", webm_file))
