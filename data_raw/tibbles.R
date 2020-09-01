@@ -41,3 +41,6 @@ usethis::use_data(roads, overwrite = TRUE)
 world_wonders <- read_sheet("1bOlgW25zpWOUTPcPcNDbfpXK5f90J2BBaBuzwypABQs", "world_wonders") %>%
   mutate(world_wonder = bit64::as.integer64(world_wonder))
 usethis::use_data(world_wonders, overwrite = TRUE)
+
+leaders <- read_sheet("1bOlgW25zpWOUTPcPcNDbfpXK5f90J2BBaBuzwypABQs", "leaders")
+usethis::use_data(leaders, overwrite = TRUE)
