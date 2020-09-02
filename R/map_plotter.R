@@ -3,13 +3,13 @@
 #' @importFrom RColorBrewer brewer.pal
 #' @export
 plot_empty_map <- function(tib) {
-  ggplot(tab, aes(x = x0, y = y0, x0 = x0, y0 = y0, sides = 6, angle = 30 / 180 * pi, r = xy_ratio)) +
+  ggplot(tib, aes(x = x0, y = y0, x0 = x0, y0 = y0, sides = 6, angle = 30 / 180 * pi, r = xy_ratio)) +
     theme_void() +
     theme(
       axis.text = element_blank(),
       axis.title = element_blank()
     ) +
-    coord_equal()
+    coord_equal(expand = FALSE)
 }
 
 #' @importFrom rlang %|%

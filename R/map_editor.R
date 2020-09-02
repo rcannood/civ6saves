@@ -20,9 +20,9 @@ add_coordinates <- function(tib) {
 #' @export
 get_river_coordinates <- function(tib) {
   bind_rows(
-    tab %>% filter(river_e != -1) %>% mutate(xa = x2, xb = x3, ya = y2, yb = y3),
-    tab %>% filter(river_se != -1) %>% mutate(xa = x3, xb = x4, ya = y3, yb = y4),
-    tab %>% filter(river_sw != -1) %>% mutate(xa = x4, xb = x5, ya = y4, yb = y5)
+    tib %>% filter(river_e != -1) %>% mutate(xa = x2, xb = x3, ya = y2, yb = y3),
+    tib %>% filter(river_se != -1) %>% mutate(xa = x3, xb = x4, ya = y3, yb = y4),
+    tib %>% filter(river_sw != -1) %>% mutate(xa = x4, xb = x5, ya = y4, yb = y5)
   )
 }
 
