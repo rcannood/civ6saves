@@ -21,38 +21,31 @@ walk(list.files(input, ".*\\.Civ6Save$", full.names = TRUE), function(file) {
     # decompressing binary data, parsing uncompressed data
     yaml <- system(
       # paste0("node node_modules/civ6-save-parser/index.js \"", file, "\" --outputCompressed"),
-      paste0("node node_modules/civ6-save-parser/index.js \"", file, "\""),
+      paste0("node node_modules/civ6-save-parser/index.js \"", file, "\" --simple"),
       intern = TRUE,
       ignore.stderr = TRUE
     )
-    yaml_list <- yaml::yaml.load(yaml, handlers = list(int = identity))
+    out <- yaml::yaml.load(yaml, handlers = list(int = identity))
+
+    for (nam in c("ACTORS", "CIVS", "MOD_BLOCK_1", "MOD_BLOCK_2", "MOD_BLOCK_3")) {
+      out[[nam]] <- out[[nam]] %>% map_df(data.frame) %>% as_tibble()
+    }
 
     # parse compressed data
     system(paste0("node civ6save-editing/scripts/savetomaptsv.js \"", file, "\" \"", gsub("\\.tsv", "", tsv_file), "\""))
-    out <- list(
-      map = read_tsv(tsv_file, col_types = cols(.default = "c")) %>%
-        mutate_at(vars(-starts_with("buffer")), function(x) {
-          y <- bit64::as.integer64(x)
-          if (max(y, na.rm = TRUE) <= .Machine$integer.max) {
-            as.integer(y)
-          } else {
-            y
-          }
-        })
-    )
+    out$MAP <- read_tsv(tsv_file, col_types = cols(.default = "c")) %>%
+      mutate_at(vars(-starts_with("buffer")), function(x) {
+        y <- bit64::as.integer64(x)
+        if (max(y, na.rm = TRUE) <= .Machine$integer.max) {
+          as.integer(y)
+        } else {
+          y
+        }
+      })
+
     file.remove(tsv_file)
     # out <- read_save(bin_file)
     # file.remove(bin_file)
-
-    out$actors <- yaml_list$ACTORS %>% map(function(li) map(li, function(li2) li2[["data"]])) %>% map_df(data.frame) %>% as_tibble()
-    out$civs <- yaml_list$CIVS %>% map(function(li) map(li, function(li2) li2[["data"]])) %>% map_df(data.frame) %>% as_tibble()
-    out$game_speed <- yaml_list$GAME_SPEED$data
-    out$map_size <- yaml_list$MAP_SIZE$data
-    out$mod_block_1 <- yaml_list$MOD_BLOCK_1$data %>% map(function(li) map(li, function(li2) li2[["data"]])) %>% map_df(data.frame) %>% as_tibble()
-    out$mod_block_2 <- yaml_list$MOD_BLOCK_2$data %>% map(function(li) map(li, function(li2) li2[["data"]])) %>% map_df(data.frame) %>% as_tibble()
-    out$mod_block_3 <- yaml_list$MOD_BLOCK_3$data %>% map(function(li) map(li, function(li2) li2[["data"]])) %>% map_df(data.frame) %>% as_tibble()
-    out$game_turn <- yaml_list$GAME_TURN$data
-    out$map_file <- yaml_list$MAP_FILE$data
 
     write_rds(out, rds_file, compress = "gz")
   }
@@ -62,7 +55,7 @@ rds_files <- list.files(input, ".*\\.rds$", full.names = TRUE)
 
 # fetch static data
 out_static <- read_rds(rds_files[[1]])
-tab_static <- out_static$map %>%
+tab_static <- out_static$MAP %>%
   add_coordinates() %>%
   left_join(terrains, by = "terrain") %>%
   left_join(features, by = "feature")
@@ -75,13 +68,14 @@ owner_ids <- unlist(map(rds_files, function(rds_file) {
 })) %>% unique() %>% sort()
 
 leader_colours <- bind_rows(
-  out_static$civs %>%
+  out_static$CIVS %>%
     transmute(owner = row_number() - 1L, leader = LEADER_NAME) %>%
     left_join(leaders, by = "leader") %>%
     rename(leader_inner_colour = leader_outer_colour, leader_outer_colour = leader_inner_colour),
   tibble(
-    owner = setdiff(owner_ids, c(seq_len(nrow(out_static$civs)) - 1, 62L, 255L)),
-    leader = NA,
+    owner = setdiff(owner_ids, c(seq_len(nrow(out_static$CIVS)) - 1, 62L, 255L))
+  ) %>% mutate(
+    leader = NA_character_,
     leader_name = paste0("City State ", seq_along(owner)),
     leader_inner_colour = rainbow(length(owner)),
     leader_outer_colour = "#111111"
@@ -124,9 +118,10 @@ walk(rds_files, function(rds_file) {
   png_file <- gsub("rds$", "png", rds_file)
 
   if (!file.exists(png_file)) {
+    cat("Plotting ", rds_file, "\n", sep = "")
     out <- read_rds(rds_file)
 
-    tab <- out$map %>%
+    tab <- out$MAP %>%
       add_coordinates() %>%
       mutate(file = rds_file, file_base = gsub("\\..*$", "", basename(file))) %>%
       # left_join(resources, by = "resource") %>%
@@ -149,14 +144,14 @@ walk(rds_files, function(rds_file) {
 
     cities <- tab %>% group_by(owner, city_1) %>% filter(district == min(district)) %>% ungroup()
 
-    players <- out$actors %>% filter(ACTOR_TYPE == "CIVILIZATION_LEVEL_FULL_CIV") %>% select(leader = LEADER_NAME) %>% left_join(leaders, by = "leader")
+    players <- out$ACTORS %>% filter(ACTOR_TYPE == "CIVILIZATION_LEVEL_FULL_CIV") %>% select(leader = LEADER_NAME) %>% left_join(leaders, by = "leader")
 
     g <- g0 +
       ggnewscale::new_scale_fill() +
       ggforce::geom_regon(aes(r = civ6saves:::xy_ratio * .9), tab %>% filter(feature_name == "Ice"), fill = feature_palette[["Ice"]], alpha = .4) +
       labs(
-        title = paste0("Turn: ", out$game_turn, ", Map: ", out$map_file),
-        subtitle = paste0("Players: ", paste0(players$leader_name, collapse = ", "))
+        title = paste0("Turn ", out$GAME_TURN, " - ", tolower(gsub("MAPSIZE_", "", out$MAP_SIZE)), " - ", out$MAP_FILE),
+        subtitle = paste0(players$leader_name, collapse = ", ")
       )
 
     if (nrow(tab %>% filter(!is.na(owner))) > 0) {
@@ -173,5 +168,6 @@ walk(rds_files, function(rds_file) {
   }
 })
 
+cat("Combining pngs with ffmpeg\n")
 if (file.exists(webm_file)) file.remove(webm_file)
 system(paste0("ffmpeg -framerate 1 -f image2 -i ", input, "/%*.png -c:v libvpx-vp9 -pix_fmt yuva420p ", webm_file))

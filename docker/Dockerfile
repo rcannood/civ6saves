@@ -2,7 +2,8 @@ FROM rocker/tidyverse:4.0.2
 
 RUN apt-get update && apt-get -y install ffmpeg nodejs npm libpoppler-cpp-dev
 
-RUN mkdir /app && cd /app && npm install civ6-save-parser
+# install civ6-save-parser but remove quotes in strings
+RUN mkdir /app && cd /app && npm install civ6-save-parser && sed -i "s#\\\\'##" /app/node_modules/civ6-save-parser/index.js
 
 RUN cd /app && git clone --depth 1 https://github.com/rcannood/civ6save-editing.git
 
