@@ -5,10 +5,18 @@
 plot_empty_map <- function(tib) {
   ggplot(tib, aes(x = x0, y = y0, x0 = x0, y0 = y0, sides = 6, angle = 30 / 180 * pi, r = xy_ratio)) +
     theme_void() +
-    theme(
-      axis.text = element_blank(),
-      axis.title = element_blank()
-    ) +
+    theme(axis.line=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title=element_blank(),
+          axis.text.y=element_blank(),
+          axis.text.x=element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(hjust = .5, size = 16),
+          plot.subtitle = element_text(hjust = .5, size = 12),
+          legend.position = "bottom") +
     coord_equal(expand = FALSE)
 }
 

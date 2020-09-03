@@ -26,3 +26,82 @@ get_river_coordinates <- function(tib) {
   )
 }
 
+#' @importFrom dplyr transmute
+#' @export
+get_border_coordinates <- function(tib) {
+  bind_rows(
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = ifelse(y %% 2 == 0, x, x + 1), y = y + 1, xa = x1, xb = x2, ya = y1, yb = y2, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    ),
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = x + 1, y, xa = x2, xb = x3, ya = y2, yb = y3, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    ),
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = ifelse(y %% 2 == 0, x, x + 1), y = y - 1, xa = x3, xb = x4, ya = y3, yb = y4, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    ),
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = ifelse(y %% 2 == 0, x - 1, x), y = y - 1, xa = x4, xb = x5, ya = y4, yb = y5, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    ),
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = x - 1, y, xa = x5, xb = x6, ya = y5, yb = y6, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    ),
+    left_join(
+      tib %>% transmute(x0, y0, leader_name, x = ifelse(y %% 2 == 0, x - 1, x), y = y + 1, xa = x6, xb = x1, ya = y6, yb = y1, owner),
+      tib %>% transmute(x, y, owner2 = owner),
+      by = c("x", "y")
+    )
+  ) %>%
+    filter(!is.na(owner), owner != owner2 | is.na(owner2)) %>%
+    mutate(xa = xa * .9 + x0 * .1, xb = xb * .9 + x0 * .1, ya = ya * .9 + y0 * .1, yb = yb * .9 + y0 * .1)
+}
+
+#' @importFrom dplyr transmute
+#' @export
+get_road_coordinates <- function(tib) {
+  tib <- tib %>% filter(road > 0)
+
+  bind_rows(
+    inner_join(
+      tib %>% transmute(x = ifelse(y %% 2 == 0, x, x + 1), y = y + 1, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    ),
+    inner_join(
+      tib %>% transmute(x = x + 1, y, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    ),
+    inner_join(
+      tib %>% transmute(x = ifelse(y %% 2 == 0, x, x + 1), y = y - 1, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    ),
+    inner_join(
+      tib %>% transmute(x = ifelse(y %% 2 == 0, x - 1, x), y = y - 1, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    ),
+    inner_join(
+      tib %>% transmute(x = x - 1, y, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    ),
+    inner_join(
+      tib %>% transmute(x = ifelse(y %% 2 == 0, x - 1, x), y = y + 1, xa = x0, ya = y0, road),
+      tib %>% transmute(x, y, xb = x0, yb = y0),
+      by = c("x", "y")
+    )
+  ) %>%
+    mutate(xb = (xa + xb) / 2, yb = (ya + yb) / 2) %>%
+    left_join(roads, by = "road")
+}
