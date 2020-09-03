@@ -4,7 +4,8 @@ library(tidyverse)
 library(ggforce)
 library(civ6saves)
 
-input <- "/mnt/data/nextcloud/saves_france/"
+input <- "/mnt/data/nextcloud/civ6_saves/saves_france/"
+#input <- "/mnt/data/nextcloud/saves_france/"
 input <- commandArgs(trailingOnly = TRUE)[[1]]
 
 webm_file <- paste0(input, "/output.webm")
@@ -24,7 +25,17 @@ walk(list.files(input, ".*\\.Civ6Save$", full.names = TRUE), function(file) {
       paste0("node node_modules/civ6-save-parser/index.js \"", file, "\" --simple"),
       intern = TRUE,
       ignore.stderr = TRUE
-    )
+    ) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)'(.*)`", "`\\1\\2`", .) %>%
+      gsub("`([^']*)`", "'\\1'", .)
+
     out <- yaml::yaml.load(yaml, handlers = list(int = identity))
 
     for (nam in c("ACTORS", "CIVS", "MOD_BLOCK_1", "MOD_BLOCK_2", "MOD_BLOCK_3")) {
@@ -64,9 +75,12 @@ rivers <- get_river_coordinates(tab_static)
 
 # construct leader colours
 owner_ids <- unlist(map(rds_files, function(rds_file) {
-  read_rds(rds_file)$map$owner
+  read_rds(rds_file)$MAP$owner
 })) %>% unique() %>% sort()
 
+assertthat::assert_that(all(out_static$CIVS$LEADER_NAME %in% leaders$leader))
+
+# assign colours to civs
 leader_colours <- bind_rows(
   out_static$CIVS %>%
     transmute(owner = row_number() - 1L, leader = LEADER_NAME) %>%
@@ -86,6 +100,16 @@ leader_colours <- bind_rows(
     255L, "LEADER_FREE_CITIES", "Free Cities", "red", "black"
   )
 )
+
+# check colours
+# ggplot(leader_colours, aes(0, seq_along(owner))) +
+#   geom_point(aes(colour = leader_inner_colour), size = 6) +
+#   geom_point(aes(colour = leader_outer_colour), size = 4) +
+#   geom_text(aes(x = 1, label = leader_name), hjust = 0) +
+#   scale_colour_identity() +
+#   expand_limits(x = 2) +
+#   theme_minimal()
+
 owner_outer_palette <- leader_colours %>% select(leader_name, leader_outer_colour) %>% deframe()
 owner_inner_palette <- leader_colours %>% select(leader_name, leader_inner_colour) %>% deframe()
 
@@ -97,20 +121,7 @@ g0 <-
   geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Hill"), alpha = alpha) +
   geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Mountain"), fontface = "bold", alpha = alpha) +
   geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = feature_palette[["River"]], rivers, size = 1, alpha = alpha) +
-  scale_fill_manual(values = terrain_palette) +
-  theme(axis.line=element_blank(),
-        axis.ticks=element_blank(),
-        axis.title=element_blank(),
-        axis.text.y=element_blank(),
-        axis.text.x=element_blank(),
-        panel.border = element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        plot.title = element_text(hjust = .5, size = 16),
-        plot.subtitle = element_text(hjust = .5, size = 12),
-        # plot.margin = unit(c(-2, -2, -2, -2), "cm"),
-        legend.position = "none")
+  scale_fill_manual(values = terrain_palette)
 
 
 walk(rds_files, function(rds_file) {
@@ -123,51 +134,51 @@ walk(rds_files, function(rds_file) {
 
     tab <- out$MAP %>%
       add_coordinates() %>%
-      mutate(file = rds_file, file_base = gsub("\\..*$", "", basename(file))) %>%
-      # left_join(resources, by = "resource") %>%
-      # left_join(terrains, by = "terrain") %>%
       left_join(features, by = "feature") %>%
       left_join(improvements, by = "improvement") %>%
-      # left_join(continents, by = "continent") %>%
       left_join(world_wonders, by = "world_wonder") %>%
       left_join(roads, by = "road") %>%
-      left_join(leader_colours %>% select(owner, leader, leader_name), by = "owner")
+      left_join(leader_colours %>% select(owner, leader, leader_name), by = "owner") %>%
+      mutate(leader_name = factor(leader_name, levels = leader_colours$leader_name))
 
-    simple_borders <- bind_rows(
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = ifelse(y %% 2 == 0, x, x + 1), y = y + 1, xa = x1, xb = x2, ya = y1, yb = y2, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2)),
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = x + 1, y, xa = x2, xb = x3, ya = y2, yb = y3, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2)),
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = ifelse(y %% 2 == 0, x, x + 1), y = y - 1, xa = x3, xb = x4, ya = y3, yb = y4, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2)),
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = ifelse(y %% 2 == 0, x - 1, x), y = y - 1, xa = x4, xb = x5, ya = y4, yb = y5, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2)),
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = x - 1, y, xa = x5, xb = x6, ya = y5, yb = y6, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2)),
-      left_join(tab %>% transmute(x0, y0, file, leader_name, x = ifelse(y %% 2 == 0, x - 1, x), y = y + 1, xa = x6, xb = x1, ya = y6, yb = y1, owner), tab %>% transmute(file, x, y, owner2 = owner), by = c("x", "y", "file")) %>% filter(!is.na(owner), owner != owner2 | is.na(owner2))
-    ) %>% mutate(xa = xa * .9 + x0 * .1, xb = xb * .9 + x0 * .1, ya = ya * .9 + y0 * .1, yb = yb * .9 + y0 * .1)
+    civ_borders <- get_border_coordinates(tab)
+    road_coords <- get_road_coordinates(tab)
 
     cities <- tab %>% group_by(owner, city_1) %>% filter(district == min(district)) %>% ungroup()
 
     players <- out$ACTORS %>% filter(ACTOR_TYPE == "CIVILIZATION_LEVEL_FULL_CIV") %>% select(leader = LEADER_NAME) %>% left_join(leaders, by = "leader")
 
     g <- g0 +
-      ggnewscale::new_scale_fill() +
       ggforce::geom_regon(aes(r = civ6saves:::xy_ratio * .9), tab %>% filter(feature_name == "Ice"), fill = feature_palette[["Ice"]], alpha = .4) +
       labs(
         title = paste0("Turn ", out$GAME_TURN, " - ", tolower(gsub("MAPSIZE_", "", out$MAP_SIZE)), " - ", out$MAP_FILE),
-        subtitle = paste0(players$leader_name, collapse = ", ")
+        subtitle = paste0(players$leader_name, collapse = ", "),
+        fill = "Terrain"
       )
+
+    if (nrow(road_coords) > 0) {
+      g <- g +
+        geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = road_name), road_coords %>% mutate(x0 = xa, y0 = ya), size = 1, alpha = .4) +
+        scale_colour_manual(values = c("Ancient Road" = "#8e712b", "Railroad" = "darkgray", "Classical Road" = "#a2a2a2", "Industrial Road" = "#6e6e6e", "Modern Road" = "#424242")) +
+        labs(colour = "Road")
+    }
 
     if (nrow(tab %>% filter(!is.na(owner))) > 0) {
       g <- g +
-        ggforce::geom_regon(aes(fill = leader_name), tab, alpha = .6) +
-        geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = leader_name, x0 = xa, y0 = ya), simple_borders, size = 1) +
+        ggnewscale::new_scale_fill() +
+        ggnewscale::new_scale_color() +
+        ggforce::geom_regon(aes(fill = leader_name), tab %>% filter(!is.na(leader_name)), alpha = .6) +
+        geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = leader_name), civ_borders %>% filter(!is.na(leader_name)), size = 1) +
+        geom_point(aes(x = x0, y = y0, colour = leader_name), cities %>% filter(!is.na(leader_name)), size = 3) +
         scale_fill_manual(values = owner_outer_palette) +
-        scale_colour_manual(values = owner_inner_palette) +
-        geom_point(aes(x = x0, y = y0, colour = leader_name), cities, size = 3)
+        scale_colour_manual(values = owner_inner_palette)
     }
 
-    ggsave(pdf_file, g, width = 20, height = 11.3)
+    ggsave(pdf_file, g, width = 20, height = 13)
     pdftools::pdf_convert(pdf_file, format = "png", filenames = png_file, verbose = FALSE)
   }
 })
 
 cat("Combining pngs with ffmpeg\n")
 if (file.exists(webm_file)) file.remove(webm_file)
-system(paste0("ffmpeg -framerate 1 -f image2 -i ", input, "/%*.png -c:v libvpx-vp9 -pix_fmt yuva420p ", webm_file))
+system(paste0("ffmpeg -framerate 4 -f image2 -i ", input, "/%*.png -c:v libvpx-vp9 -pix_fmt yuva420p ", webm_file))
