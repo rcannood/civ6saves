@@ -1,7 +1,7 @@
 library(tidyverse)
 library(googlesheets4)
 
-# gs4_auth()
+gs4_auth("brechtus@gmail.com")
 
 map_dimensions <- read_sheet("1bOlgW25zpWOUTPcPcNDbfpXK5f90J2BBaBuzwypABQs", "map_dimensions") %>%
   mutate_at(vars(x, y, size), as.integer)

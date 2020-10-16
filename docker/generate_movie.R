@@ -4,14 +4,15 @@ library(tidyverse)
 library(ggforce)
 library(civ6saves)
 
+# input <- "/mnt/data/nextcloud/civ6_saves/saves_lautaro_mvemba/"
 input <- "/mnt/data/nextcloud/civ6_saves/saves_france/"
-#input <- "/mnt/data/nextcloud/saves_france/"
 input <- commandArgs(trailingOnly = TRUE)[[1]]
 
 webm_file <- paste0(input, "/output.webm")
 
 # convert to rds
-walk(list.files(input, ".*\\.Civ6Save$", full.names = TRUE), function(file) {
+files <- list.files(input, ".*\\.Civ6Save$", full.names = TRUE)
+walk(files, function(file) {
   bin_file <- gsub("Civ6Save", "Civ6Save.bin", file) %>% basename()
   tsv_file <- gsub("Civ6Save", "tsv", file)
   rds_file <- gsub("Civ6Save", "rds", file)
@@ -121,7 +122,8 @@ g0 <-
   geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Hill"), alpha = alpha) +
   geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Mountain"), fontface = "bold", alpha = alpha) +
   geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = feature_palette[["River"]], rivers, size = 1, alpha = alpha) +
-  scale_fill_manual(values = terrain_palette)
+  scale_fill_manual(values = terrain_palette) +
+  theme(legend.position = "right")
 
 
 walk(rds_files, function(rds_file) {
@@ -158,7 +160,7 @@ walk(rds_files, function(rds_file) {
 
     if (nrow(road_coords) > 0) {
       g <- g +
-        geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = road_name), road_coords %>% mutate(x0 = xa, y0 = ya), size = 1, alpha = .4) +
+        geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = road_name), road_coords %>% mutate(x0 = xa, y0 = ya), size = 1.5, alpha = .4) +
         scale_colour_manual(values = c("Ancient Road" = "#8e712b", "Railroad" = "darkgray", "Classical Road" = "#a2a2a2", "Industrial Road" = "#6e6e6e", "Modern Road" = "#424242")) +
         labs(colour = "Road")
     }
@@ -171,10 +173,11 @@ walk(rds_files, function(rds_file) {
         geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = leader_name), civ_borders %>% filter(!is.na(leader_name)), size = 1) +
         geom_point(aes(x = x0, y = y0, colour = leader_name), cities %>% filter(!is.na(leader_name)), size = 3) +
         scale_fill_manual(values = owner_outer_palette) +
-        scale_colour_manual(values = owner_inner_palette)
+        scale_colour_manual(values = owner_inner_palette) +
+        labs(colour = "Leader", fill = "Leader")
     }
 
-    ggsave(pdf_file, g, width = 20, height = 13)
+    ggsave(pdf_file, g, width = 24, height = 13)
     pdftools::pdf_convert(pdf_file, format = "png", filenames = png_file, verbose = FALSE)
   }
 })
