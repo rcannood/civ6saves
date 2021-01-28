@@ -68,6 +68,8 @@ get_border_coordinates <- function(tib) {
 #' @importFrom dplyr transmute
 #' @export
 get_road_coordinates <- function(tib) {
+  data(roads, package = "civ6saves")
+
   tib <- tib %>% filter(road > 0)
 
   bind_rows(
